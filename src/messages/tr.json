@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Hasta Paneli",
+      "welcome": "Tekrar hoş geldiniz! Ameliyat sonrası ilerlemenizi takip edin, ipuçları alın ve AI PostCare ile sohbet edin.",
+      "summary": "İyileşme Özeti",
+      "stage": "Aşama",
+      "weight": "Kayıp kilo",
+      "hydration": "Hidrasyon",
+      "followup": "Sonraki kontrol"
+    }
+  }
+  

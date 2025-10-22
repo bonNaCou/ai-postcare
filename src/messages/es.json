@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Panel del Paciente",
+      "welcome": "¡Bienvenido de nuevo! Supervisa tu progreso postoperatorio, recibe consejos y chatea con AI PostCare para obtener orientación.",
+      "summary": "Mi Resumen de Recuperación",
+      "stage": "Etapa",
+      "weight": "Peso perdido",
+      "hydration": "Hidratación",
+      "followup": "Próxima revisión"
+    }
+  }
+  

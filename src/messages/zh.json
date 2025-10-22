@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "患者面板",
+      "welcome": "欢迎回来！跟踪您的术后恢复进展、康复建议，并与 AI PostCare 聊天获取指导。",
+      "summary": "我的康复总结",
+      "stage": "阶段",
+      "weight": "减重",
+      "hydration": "水分情况",
+      "followup": "下次复诊"
+    }
+  }
+  

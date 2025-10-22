@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Patient Dashboard",
+      "welcome": "Welcome back! Track your post-op progress, recovery tips, and chat with AI PostCare for guidance.",
+      "summary": "My Recovery Summary",
+      "stage": "Stage",
+      "weight": "Weight lost",
+      "hydration": "Hydration",
+      "followup": "Next follow-up"
+    }
+  }
+  

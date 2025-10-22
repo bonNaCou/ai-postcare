@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Patient Dashboard",
+      "welcome": "You don show again! Dey check how your body dey recover, follow AI PostCare advice and remember to drink water well-well.",
+      "summary": "My Recovery Summary",
+      "stage": "Stage",
+      "weight": "Weight wey don commot",
+      "hydration": "Water level",
+      "followup": "Next time we go check"
+    }
+  }
+  

@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Tableau de bord du patient",
+      "welcome": "Bienvenue ! Suivez vos progrès post-opératoires, vos conseils de récupération et discutez avec AI PostCare.",
+      "summary": "Mon Suivi de Récupération",
+      "stage": "Phase",
+      "weight": "Poids perdu",
+      "hydration": "Hydratation",
+      "followup": "Prochain suivi"
+    }
+  }
+  

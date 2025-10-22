@@ -1,0 +1,11 @@
+{
+    "dashboard": {
+      "title": "患者ダッシュボード",
+      "welcome": "おかえりなさい！術後の回復状況を追跡し、アドバイスを受け、AI PostCareと会話しましょう。",
+      "summary": "回復サマリー",
+      "stage": "段階",
+      "weight": "減量",
+      "hydration": "水分補給",
+      "followup": "次回の診察"
+    }
+  }

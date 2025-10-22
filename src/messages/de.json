@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Patienten-Dashboard",
+      "welcome": "Willkommen zurück! Verfolge deinen postoperativen Fortschritt, erhalte Tipps zur Genesung und chatte mit AI PostCare.",
+      "summary": "Meine Genesungsübersicht",
+      "stage": "Phase",
+      "weight": "Verlorenes Gewicht",
+      "hydration": "Flüssigkeitszufuhr",
+      "followup": "Nächste Nachuntersuchung"
+    }
+  }
+  

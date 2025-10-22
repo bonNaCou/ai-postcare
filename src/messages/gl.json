@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Panel do Paciente",
+      "welcome": "Benvido de novo! Segue a túa recuperación, consulta consellos e fala con AI PostCare para guía.",
+      "summary": "Resumo da miña Recuperación",
+      "stage": "Etapa",
+      "weight": "Peso perdido",
+      "hydration": "Hidratación",
+      "followup": "Seguimento próximo"
+    }
+  }
+  

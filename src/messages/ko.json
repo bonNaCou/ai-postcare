@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "환자 대시보드",
+      "welcome": "다시 오신 것을 환영합니다! 수술 후 회복 과정을 추적하고, 조언을 받고, AI PostCare와 상담하세요.",
+      "summary": "나의 회복 요약",
+      "stage": "단계",
+      "weight": "감량된 체중",
+      "hydration": "수분 상태",
+      "followup": "다음 방문"
+    }
+  }
+  

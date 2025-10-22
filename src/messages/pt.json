@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Painel do Paciente",
+      "welcome": "Bem-vindo de volta! Acompanhe sua recuperação pós-operatória, receba dicas e converse com o AI PostCare para orientação.",
+      "summary": "Meu Resumo de Recuperação",
+      "stage": "Fase",
+      "weight": "Peso perdido",
+      "hydration": "Hidratação",
+      "followup": "Próxima consulta"
+    }
+  }
+  

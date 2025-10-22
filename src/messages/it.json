@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Pannello del Paziente",
+      "welcome": "Bentornato! Monitora i tuoi progressi post-operatori, ricevi consigli e chatta con AI PostCare per assistenza.",
+      "summary": "Il Mio Riassunto di Recupero",
+      "stage": "Fase",
+      "weight": "Peso perso",
+      "hydration": "Idratazione",
+      "followup": "Prossimo controllo"
+    }
+  }
+  

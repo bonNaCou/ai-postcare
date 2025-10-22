@@ -1,0 +1,12 @@
+{
+    "dashboard": {
+      "title": "Bảng Điều Khiển Bệnh Nhân",
+      "welcome": "Chào mừng trở lại! Theo dõi quá trình hồi phục sau phẫu thuật và trò chuyện với AI PostCare để được hướng dẫn.",
+      "summary": "Tổng Kết Hồi Phục Của Tôi",
+      "stage": "Giai đoạn",
+      "weight": "Cân nặng đã giảm",
+      "hydration": "Mức độ nước",
+      "followup": "Lần tái khám tiếp theo"
+    }
+  }
+  
