@@ -45,7 +45,7 @@ La app ofrece seguimiento diario, recordatorios personalizados, generación de c
 ### 🧠 **IA y Machine Learning**
 - Modelo TensorFlow.js para correlación dolor-ánimo  
 - Generador de consejos personalizados (`aiTipsGenerator.ts`)  
-- Asistente de voz multilingüe (Pidgin, Yoruba, Español, Francés, Inglés)  
+- Asistente de voz multilingüe (Español,Gallego,Francés, Inglés, Pidgin-Nigeriano,Yoruba,Igbo,Hausa, Chino entre otros.. )  
 - Aprendizaje federado simulado mediante funciones de nube  
 
 ---
