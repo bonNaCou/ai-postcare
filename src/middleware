@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function middleware(req: NextRequest) {
+  const token = req.cookies.get("ai-postcare-session")?.value; // la pondremos tras login
+  const protectedPaths = ["/dashboard", "/medico"];
+  const isProtected = protectedPaths.some((p) => req.nextUrl.pathname.startsWith(p));
+  if (isProtected && !token) {
+    const url = new URL("/login", req.url);
+    return NextResponse.redirect(url);
+  }
+  return NextResponse.next();
+}

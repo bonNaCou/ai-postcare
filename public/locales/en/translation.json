@@ -1,12 +1,30 @@
 {
-    "title": "Doctor Dashboard",
-    "welcome": "Monitor and guide your patients intelligently.",
-    "totalPatients": "Total Patients",
-    "stableRecovery": "Stable Recovery",
-    "newThisWeek": "New This Week",
-    "openChat": "Open Chat",
-    "uploadReport": "Upload Report",
-    "downloadPDF": "Download PDF",
-    "changeTheme": "Change Background Theme"
-  }
-  
+  "title": "Patient Dashboard",
+  "welcome": "Welcome back",
+  "save": "Save Progress",
+  "download": "Download PDF Report",
+  "logout": "Log out",
+  "doctorPanel": "Doctor Dashboard",
+  "changeTheme": "Change Background Theme",
+  "weightLost": "Weight Lost",
+  "recommendation": "Recommendation",
+  "bmi": "BMI",
+  "reminders": "Health Reminders",
+
+  "doctorDashboard": "Doctor Dashboard",
+  "welcomeDoctor": "Monitor and guide your patients intelligently.",
+  "patientDashboard": "Patient Dashboard",
+  "search": "Search by name or ID...",
+  "results": "results",
+  "totalPatients": "Total Patients",
+  "stableRecovery": "Stable Recovery",
+  "newThisWeek": "New This Week",
+  "patientOverview": "Patient Overview",
+  "loading": "Loading...",
+  "noPatients": "No patients found.",
+  "name": "Name",
+  "weight": "Weight",
+  "height": "Height",
+  "status": "Status",
+  "registered": "Registered"
+}

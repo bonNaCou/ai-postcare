@@ -7,15 +7,14 @@ i18n
   .use(initReactI18next)
   .init({
     fallbackLng: "en",
-    supportedLngs: [
-      "en", "es", "fr", "gl", "pidgin", "ig", "yo", "ha", "zh"
-    ],
+    supportedLngs: ["en", "es", "fr", "gl", "pidgin", "ig", "yo", "ha", "zh"],
     detection: {
       order: ["querystring", "localStorage", "navigator"],
-      caches: ["localStorage"],
+      caches: ["localStorage"]
     },
     interpolation: { escapeValue: false },
-    resources: {}, // translations loaded automatically by Next.js
+    resources: {} // translations loaded automatically by Next.js
   });
 
 export default i18n;
+
