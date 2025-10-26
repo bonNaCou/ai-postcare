@@ -1,7 +1,12 @@
-export function aiTipsGenerator(bmi: number, mood?: string) {
-  if (!bmi) return "Keep monitoring your progress daily.";
-  if (bmi < 18.5) return "Increase protein intake and eat small frequent meals.";
-  if (bmi < 24.9) return "Great job maintaining your healthy balance!";
-  if (bmi < 29.9) return "Try light exercises and reduce sugary foods.";
-  return "Consult your nutritionist for a personalized recovery plan.";
+{
+  "hosting": {
+    "public": "out",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  },
+  "functions": {
+    "source": "functions"
+  }
 }

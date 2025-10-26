@@ -1,5 +1,3 @@
-// Firebase configuration (v10 modular)
-// src/lib/firebaseConfig.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -14,7 +12,22 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
 
-export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+// ✅ Evita inicializar dos veces
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// ✅ Inicializa los servicios
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// ⚙️ Configura un tiempo de reintento de subida más corto (30 s)
+try {
+  // En Firebase v10+, accedemos a través de `storage._delegate`
+  if ((storage as any)?._delegate?.setMaxUploadRetryTime) {
+    (storage as any)._delegate.setMaxUploadRetryTime(30000);
+  }
+} catch (err) {
+  console.warn("⚠️ Unable to set max upload retry time:", err);
+}
+
+export { app, auth, db, storage };

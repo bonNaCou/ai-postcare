@@ -7,36 +7,45 @@ import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import FileUploader from "./components/FileUploader";
 import ChatIA from "../../ChatIA";
 import LanguageSelector from "@/components/LanguageSelector";
-import HealthForm from "@/components/HealthForm";
-import PDFExportButton from "@/components/PDFExportButton";
-import AlarmManager from "@/components/AlarmManager";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useTranslation } from "react-i18next";
 
-
-<header className="flex justify-between items-center mb-10">
-  ...
-  <LanguageSelector />
-</header>
-
+// -------------------------------
 
 export default function PatientDashboard() {
   const { t } = useTranslation();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>({
-    stage: "",
-    prevWeight: "",
-    currentWeight: "",
-    height: "",
-    hydration: "",
-    nextFollowUp: "",
-  });
-  const [bgIndex, setBgIndex] = useState<number>(0);
   const router = useRouter();
 
-  // 🎨 Backgrounds
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [bgIndex, setBgIndex] = useState(0);
+
+  const [profile, setProfile] = useState<any>({
+    fullName: "",
+    gender: "",
+    birthDate: "",
+    stage: "",
+    weightGoal: "",
+    weightUnit: "kg",
+    prevWeight: "",
+    prevWeightUnit: "kg",
+    currentWeight: "",
+    currentWeightUnit: "kg",
+    height: "",
+    heightUnit: "cm",
+    painLevel: 0,
+    mood: "",
+    hydration: "",
+    nextFollowUp: "",
+    reminders: { medication: false, meals: false, water: false },
+  });
+
   const backgrounds = [
     "/assets/bg1.webp",
     "/assets/bg2.webp",
@@ -47,306 +56,297 @@ export default function PatientDashboard() {
     "/assets/bg7.webp",
   ];
 
-  // 🔄 Restore background selection
+  // ------------------------------- Theme & Background
   useEffect(() => {
-    const saved = localStorage.getItem("bgIndex");
-    if (saved) setBgIndex(Number(saved));
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      setDarkMode(true);
+      document.documentElement.classList.add("dark");
+    }
+    const savedBg = localStorage.getItem("bgIndex");
+    if (savedBg) setBgIndex(Number(savedBg));
   }, []);
 
-  // 🔄 Change background
+  const toggleTheme = () => {
+    const newTheme = !darkMode;
+    setDarkMode(newTheme);
+    localStorage.setItem("theme", newTheme ? "dark" : "light");
+    document.documentElement.classList.toggle("dark", newTheme);
+  };
+
   const changeBackground = () => {
     const next = (bgIndex + 1) % backgrounds.length;
     setBgIndex(next);
     localStorage.setItem("bgIndex", next.toString());
   };
 
-  // 🔐 Detect active session
+  // ------------------------------- Auth & Data
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (u) => {
       if (u) {
         setUser(u);
         await fetchPatientData(u.uid);
       } else {
-        router.push("/login");
+        router.replace("/login");
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, [router]);
 
-  // 📥 Fetch user data
   const fetchPatientData = async (uid: string) => {
     try {
-      const ref = doc(db, "patients", uid);
-      const snap = await getDoc(ref);
-      if (snap.exists()) setProfile(snap.data());
+      const refDoc = doc(db, "patients", uid);
+      const snap = await getDoc(refDoc);
+      if (snap.exists()) {
+        const data = snap.data();
+        setProfile((prev: any) => ({
+          ...prev,
+          ...data,
+          reminders: data.reminders || { medication: false, meals: false, water: false },
+        }));
+      }
     } catch (err) {
       console.error("❌ Error loading patient data:", err);
     }
   };
 
-  // 💾 Save user updates
   const saveProfile = async () => {
     if (!user) return;
     try {
-      const ref = doc(db, "patients", user.uid);
-      await setDoc(ref, profile, { merge: true });
+      const refDoc = doc(db, "patients", user.uid);
+      await setDoc(refDoc, profile, { merge: true });
       alert("✅ Data saved successfully!");
     } catch (err) {
       console.error("❌ Error saving data:", err);
     }
   };
 
-  // 🧮 Calculate BMI
+  // ------------------------------- Calculations
+  const convertWeightToKg = (v: number, u: string) =>
+    u === "lbs" ? v * 0.453592 : u === "st" ? v * 6.35029 : v;
+  const convertHeightToMeters = (v: number, u: string) =>
+    u === "cm" ? v / 100 : u === "in" ? v * 0.0254 : v;
+
   const calculateBMI = () => {
     if (!profile.currentWeight || !profile.height) return "";
-    const bmi =
-      Number(profile.currentWeight) / Math.pow(Number(profile.height), 2);
-    return bmi.toFixed(1);
+    const weight = convertWeightToKg(Number(profile.currentWeight), profile.currentWeightUnit);
+    const height = convertHeightToMeters(Number(profile.height), profile.heightUnit);
+    return (weight / Math.pow(height, 2)).toFixed(1);
   };
 
-  // 🚪 Logout
+  const weightLost =
+    profile.prevWeight && profile.currentWeight
+      ? (
+          convertWeightToKg(Number(profile.prevWeight), profile.prevWeightUnit) -
+          convertWeightToKg(Number(profile.currentWeight), profile.currentWeightUnit)
+        ).toFixed(1)
+      : "";
+
+  const painDescription =
+    profile.painLevel <= 2
+      ? "No pain"
+      : profile.painLevel <= 5
+      ? "Mild discomfort"
+      : profile.painLevel <= 8
+      ? "Moderate pain"
+      : "Severe pain — seek help";
+
+  // ------------------------------- Chart Data
+  const chartData = [
+    { day: "Mon", bmi: 27.2, hydration: 85 },
+    { day: "Tue", bmi: 26.9, hydration: 80 },
+    { day: "Wed", bmi: 26.8, hydration: 82 },
+    { day: "Thu", bmi: 26.7, hydration: 81 },
+    { day: "Fri", bmi: 26.6, hydration: 79 },
+  ];
+
+  // ------------------------------- PDF Export
+  const downloadPDF = () => {
+    const docPDF = new jsPDF();
+    const today = new Date().toLocaleDateString();
+    const logo = "/postcare-logo-new.webp";
+
+    docPDF.addImage(logo, "WEBP", 80, 10, 50, 50);
+    docPDF.setFont("helvetica", "bold");
+    docPDF.setFontSize(16);
+    docPDF.setTextColor(106, 13, 173);
+    docPDF.text("AI PostCare - Recovery Summary", 105, 70, { align: "center" });
+    docPDF.setDrawColor(153, 102, 255);
+    docPDF.line(30, 75, 180, 75);
+
+    const data = [
+      ["Full Name", profile.fullName || "—"],
+      ["Gender", profile.gender || "—"],
+      ["Date of Birth", profile.birthDate || "—"],
+      ["Recovery Phase", profile.stage || "—"],
+      ["Weight Goal", `${profile.weightGoal} ${profile.weightUnit}`],
+      ["Previous Weight", `${profile.prevWeight} ${profile.prevWeightUnit}`],
+      ["Current Weight", `${profile.currentWeight} ${profile.currentWeightUnit}`],
+      ["Height", `${profile.height} ${profile.heightUnit}`],
+      ["Pain Level", `${profile.painLevel}/10 (${painDescription})`],
+      ["Mood", profile.mood || "—"],
+      ["Hydration", profile.hydration || "—"],
+      ["Next Follow-up", profile.nextFollowUp || "—"],
+      ["Weight Lost", `${weightLost || "—"} kg`],
+      ["BMI", calculateBMI() || "—"],
+    ];
+
+    autoTable(docPDF, {
+      startY: 85,
+      head: [["Field", "Value"]],
+      body: data,
+      styles: { fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: [106, 13, 173], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 240, 255] },
+    });
+
+    const finalY = (docPDF as any).lastAutoTable.finalY + 15;
+    docPDF.setFontSize(10);
+    docPDF.text(`Generated on ${today}`, 105, finalY, { align: "center" });
+    docPDF.save(`AI-PostCare-Report_${today}.pdf`);
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
   };
 
-  // 🕐 Loading
+  // ------------------------------- Loading
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-100 to-white">
-        <p className="text-purple-600 font-medium animate-pulse">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-100 to-white dark:from-gray-900 dark:to-black">
+        <p className="text-purple-600 dark:text-purple-300 font-medium animate-pulse">
           Checking your session...
         </p>
       </div>
     );
 
-  // 🩺 Recovery Phases
-  const recoveryPhases = [
-    { value: "phase1", label: "Phase 1 – Clear Liquids" },
-    { value: "phase2", label: "Phase 2 – Full Liquids" },
-    { value: "phase3", label: "Phase 3 – Pureed Foods" },
-    { value: "phase4", label: "Phase 4 – Soft Foods" },
-    { value: "phase5", label: "Phase 5 – Solid Foods" },
-  ];
-
-  const weightLost =
-    profile.prevWeight && profile.currentWeight
-      ? Number(profile.prevWeight) - Number(profile.currentWeight)
-      : "";
-
+  // ------------------------------- RENDER
   return (
     <main
-      className="relative min-h-screen transition-all duration-700 flex"
+      className={`relative min-h-screen flex flex-col lg:flex-row transition-all duration-700 ${
+        darkMode ? "dark bg-gray-900 text-gray-100" : ""
+      }`}
       style={{
         backgroundImage: `url(${backgrounds[bgIndex]})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-white/80 dark:bg-black/70 backdrop-blur-sm"></div>
 
-      {/* Left panel */}
-      <div className="relative flex-1 p-8 z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+      {/* MAIN PANEL */}
+      <div className="relative flex-1 p-6 z-10 overflow-y-auto">
+        {/* HEADER */}
+        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <div className="flex items-center gap-3">
             <Image
               src="/postcare-logo-new.webp"
               alt="AI PostCare Logo"
-              width={110}
-              height={110}
-              className="rounded-full shadow-lg border-4 border-purple-200"
+              width={85}
+              height={85}
+              className="rounded-full shadow-lg border-4 border-purple-200 dark:border-purple-700"
             />
             <div>
-              <h1 className="text-3xl font-bold text-purple-700 drop-shadow-sm">
+              <h1 className="text-3xl font-bold text-purple-700 dark:text-purple-300">
                 Patient Dashboard
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                 Welcome back,{" "}
-                <span className="text-purple-600 font-semibold">
-                  {user?.displayName || user?.email}
+                <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                  {user?.email}
                 </span>
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col items-end">
-            <Link
-              href="/dashboard/doctor"
-              className="text-purple-600 hover:underline text-sm mb-2"
-            >
-              👩‍⚕️ Doctor Dashboard
+          <div className="flex flex-col items-end gap-2 text-sm">
+            <Link href="/dashboard/home" className="text-purple-600 hover:underline">
+              Home
             </Link>
-            <button
-              onClick={handleLogout}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1 rounded-md text-sm transition"
-            >
+            <Link href="/dashboard/doctor" className="text-purple-600 hover:underline">
+              Doctor Dashboard
+            </Link>
+            <button onClick={handleLogout} className="bg-purple-600 text-white px-3 py-1 rounded-md">
               Log out
             </button>
+            <button onClick={toggleTheme} className="bg-gray-200 dark:bg-gray-800 px-3 py-1 rounded-full">
+              {darkMode ? "☀️" : "🌙"}
+            </button>
+            <button onClick={changeBackground} className="bg-purple-100 dark:bg-purple-900 px-3 py-1 rounded-full">
+              Change Background
+            </button>
+            <LanguageSelector />
           </div>
-        </div>
+        </header>
 
-        {/* Summary */}
-        <p className="text-gray-700 mb-6">
-          Manage your post-surgery progress 💜  
-          You can update your recovery data or sync it with your mobile health
-          app (coming soon 📱).
-        </p>
+        {/* KEY METRICS */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: "BMI", value: calculateBMI() || "—" },
+            { label: "Weight Lost (kg)", value: weightLost || "—" },
+            { label: "Pain Level", value: `${profile.painLevel}/10` },
+            { label: "Hydration", value: profile.hydration || "—" },
+          ].map((m, i) => (
+            <div
+              key={i}
+              className="bg-white/90 dark:bg-gray-800/90 border border-purple-200 dark:border-purple-700 rounded-xl shadow-md p-4 text-center"
+            >
+              <h3 className="text-sm text-gray-500">{m.label}</h3>
+              <p className="text-xl font-semibold text-purple-700 dark:text-purple-300 mt-1">
+                {m.value}
+              </p>
+            </div>
+          ))}
+        </section>
 
-        {/* Recovery Summary Card */}
-        <div className="bg-white/90 p-6 rounded-2xl shadow-md border border-purple-100 max-w-lg">
-          <h2 className="text-lg font-semibold mb-4 text-purple-700">
-            🩺 My Recovery Summary
+        {/* CHARTS */}
+        <section className="bg-white/90 dark:bg-gray-800/90 p-6 rounded-2xl shadow-md border border-purple-100 dark:border-purple-800 max-w-3xl mx-auto">
+          <h2 className="text-lg font-semibold mb-4 text-purple-700 dark:text-purple-300">
+            Progress Overview
           </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+              <XAxis dataKey="day" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="bmi" stroke="#8B5CF6" strokeWidth={2} />
+              <Line type="monotone" dataKey="hydration" stroke="#06B6D4" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
 
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-800">
-            {/* Phase */}
-            <div>
-              <label className="block text-gray-600 mb-1 font-medium">
-                Recovery Phase
-              </label>
-              <select
-                value={profile.stage}
-                onChange={(e) =>
-                  setProfile({ ...profile, stage: e.target.value })
-                }
-                className="border border-purple-200 rounded-md p-2 w-full focus:ring-2 focus:ring-purple-300"
-              >
-                <option value="">Select your phase</option>
-                {recoveryPhases.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Height */}
-            <div>
-              <label className="block text-gray-600 mb-1 font-medium">
-                Height (m)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={profile.height || ""}
-                onChange={(e) =>
-                  setProfile({ ...profile, height: e.target.value })
-                }
-                placeholder="e.g. 1.68"
-                className="border border-purple-200 rounded-md p-2 w-full"
-              />
-            </div>
-
-            {/* Previous Weight */}
-            <div>
-              <label className="block text-gray-600 mb-1 font-medium">
-                Previous Weight (kg)
-              </label>
-              <input
-                type="number"
-                value={profile.prevWeight || ""}
-                onChange={(e) =>
-                  setProfile({ ...profile, prevWeight: e.target.value })
-                }
-                placeholder="e.g. 118"
-                className="border border-purple-200 rounded-md p-2 w-full"
-              />
-            </div>
-
-            {/* Current Weight */}
-            <div>
-              <label className="block text-gray-600 mb-1 font-medium">
-                Current Weight (kg)
-              </label>
-              <input
-                type="number"
-                value={profile.currentWeight || ""}
-                onChange={(e) =>
-                  setProfile({ ...profile, currentWeight: e.target.value })
-                }
-                placeholder="e.g. 94"
-                className="border border-purple-200 rounded-md p-2 w-full"
-              />
-            </div>
-
-            {/* Hydration */}
-            <div>
-              <label className="block text-gray-600 mb-1 font-medium">
-                Hydration
-              </label>
-              <select
-                value={profile.hydration}
-                onChange={(e) =>
-                  setProfile({ ...profile, hydration: e.target.value })
-                }
-                className="border border-purple-200 rounded-md p-2 w-full"
-              >
-                <option value="">Select</option>
-                <option value="Excellent 💧💧💧">Excellent 💧💧💧</option>
-                <option value="Good 💧💧">Good 💧💧</option>
-                <option value="Low 💧">Low 💧</option>
-              </select>
-            </div>
-
-            {/* Next Follow-up */}
-            <div>
-              <label className="block text-gray-600 mb-1 font-medium">
-                Next Follow-up
-              </label>
-              <input
-                type="date"
-                value={profile.nextFollowUp || ""}
-                onChange={(e) =>
-                  setProfile({ ...profile, nextFollowUp: e.target.value })
-                }
-                className="border border-purple-200 rounded-md p-2 w-full"
-              />
-            </div>
-          </div>
-
-          {/* Results */}
-          <div className="mt-6 border-t pt-4 text-sm text-gray-700 space-y-1">
-            <p>
-              <b>Weight Lost:</b> {weightLost || "—"} kg
-            </p>
-            <p>
-              <b>BMI:</b> {calculateBMI() || "—"}
-            </p>
-          </div>
-
-          {/* Save */}
-          <button
-            onClick={saveProfile}
-            className="mt-6 w-full bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white py-2 rounded-lg font-medium hover:opacity-90 transition"
-          >
+        {/* ACTION BUTTONS */}
+        <div className="flex justify-between max-w-3xl mx-auto mt-6">
+          <button onClick={saveProfile} className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-md">
             Save Progress
           </button>
-
           <button
-            onClick={changeBackground}
-            className="mt-3 text-xs text-purple-500 hover:text-purple-700 transition underline underline-offset-4 block mx-auto"
+            onClick={downloadPDF}
+            className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-5 py-2 rounded-md"
           >
-            Change Background Theme
+            Download PDF Report
           </button>
-
-          <p className="mt-3 text-xs text-gray-500 text-center">
-            Coming soon: Sync with Apple Health & Google Fit 📱
-          </p>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-10 text-sm text-gray-500">
+        {/* FILE UPLOAD */}
+        {user && (
+          <div className="max-w-3xl mx-auto mt-6">
+            <FileUploader userId={user.uid} />
+          </div>
+        )}
+
+        <footer className="mt-10 text-xs text-center text-gray-500 dark:text-gray-400">
           <b>AI PostCare</b> — Smart Care, Human Touch.
         </footer>
       </div>
 
-      {/* Right panel: AI Assistant */}
-      <aside className="relative z-10 w-1/3 bg-white/90 border-l border-purple-100 p-6 shadow-inner backdrop-blur-md">
-        <h2 className="text-lg font-semibold mb-4 text-purple-700">
-          🤖 AIP Assistant
+      {/* AI ASSISTANT PANEL */}
+      <aside className="relative z-10 w-full lg:w-1/3 bg-white/95 dark:bg-gray-800/95 border-t lg:border-l border-purple-100 dark:border-purple-800 p-4 shadow-inner backdrop-blur-md">
+        <h2 className="text-lg font-semibold mb-4 text-purple-700 dark:text-purple-300 text-center">
+          AIP Assistant
         </h2>
         <ChatIA />
       </aside>
