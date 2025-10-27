@@ -1,12 +1,19 @@
 "use client";
 
+/*
+==============================================================
+ 🩺 AI POSTCARE – DOCTOR DASHBOARD
+==============================================================
+• Displays a list of patients retrieved from Firestore.
+• Fetches uploaded files from Firebase Storage.
+• Provides search, statistics, and conversion between metric/imperial.
+• Includes dark mode and background rotation.
+• Fully responsive UI for doctors to monitor patients’ progress.
+==============================================================
+*/
+
 import { useEffect, useState } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  orderBy,
-} from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { ref, listAll, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebaseConfig";
 import Image from "next/image";
@@ -14,6 +21,9 @@ import Link from "next/link";
 import LanguageSelector from "@/components/LanguageSelector";
 import { useTranslation } from "react-i18next";
 
+/* ------------------------------------------------------------
+   📘 Type Definition for Patient Data
+------------------------------------------------------------ */
 type Patient = {
   id: string;
   name?: string;
@@ -26,28 +36,42 @@ type Patient = {
 
 export default function DoctorDashboard() {
   const { t } = useTranslation();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [filtered, setFiltered] = useState<Patient[]>([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [unit, setUnit] = useState<"metric" | "imperial">("metric");
-  const [darkMode, setDarkMode] = useState(false);
-  const [bgIndex, setBgIndex] = useState(0);
 
+  /* ------------------------------------------------------------
+     🔧 State Management
+  ------------------------------------------------------------ */
+  const [patients, setPatients] = useState<Patient[]>([]); // All patients from Firestore
+  const [filtered, setFiltered] = useState<Patient[]>([]); // Filtered results (by search)
+  const [search, setSearch] = useState(""); // Search input value
+  const [loading, setLoading] = useState(true); // Loading state
+  const [unit, setUnit] = useState<"metric" | "imperial">("metric"); // Unit selector
+  const [darkMode, setDarkMode] = useState(false); // Theme toggle
+  const [bgIndex, setBgIndex] = useState(0); // Background image index
+
+  /* ------------------------------------------------------------
+     🖼️ Backgrounds Array
+  ------------------------------------------------------------ */
   const backgrounds = [
     "/assets/bg1.webp",
     "/assets/bg2.webp",
     "/assets/bg3.webp",
     "/assets/bg4.webp",
     "/assets/bg5.webp",
+    "/assets/bg6.webp",
+    "/assets/bg7.webp",
   ];
 
+  /* ------------------------------------------------------------
+     ⚖️ Conversion Helpers (Metric ↔️ Imperial)
+  ------------------------------------------------------------ */
   const convertWeight = (w?: number) =>
     w ? (unit === "imperial" ? (w * 2.20462).toFixed(1) : w.toFixed(1)) : "—";
   const convertHeight = (h?: number) =>
     h ? (unit === "imperial" ? (h * 3.28084).toFixed(2) : h.toFixed(2)) : "—";
 
-  // 🌙 Theme
+  /* ------------------------------------------------------------
+     🌙 Theme & Background Logic
+  ------------------------------------------------------------ */
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") {
@@ -71,17 +95,24 @@ export default function DoctorDashboard() {
     localStorage.setItem("bgIndex", next.toString());
   };
 
-  // Load data
+  /* ------------------------------------------------------------
+     📥 Load Patients Data from Firestore & Firebase Storage
+  ------------------------------------------------------------ */
   useEffect(() => {
     (async () => {
       try {
+        // Query patients collection ordered alphabetically by name
         const q = query(collection(db, "patients"), orderBy("name"));
         const snap = await getDocs(q);
+
+        // For each patient, also fetch any uploaded reports from Firebase Storage
         const data = await Promise.all(
           snap.docs.map(async (d) => {
             const patient = { id: d.id, ...(d.data() as any) };
+
             const folderRef = ref(storage, `patients/${d.id}/uploads`);
             let uploads: any[] = [];
+
             try {
               const files = await listAll(folderRef);
               uploads = await Promise.all(
@@ -93,20 +124,24 @@ export default function DoctorDashboard() {
             } catch {
               uploads = [];
             }
+
             return { ...patient, uploads };
           })
         );
+
         setPatients(data);
         setFiltered(data);
       } catch (err) {
-        console.error("Error loading patients:", err);
+        console.error("❌ Error loading patients:", err);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // Search
+  /* ------------------------------------------------------------
+     🔍 Search Functionality
+  ------------------------------------------------------------ */
   useEffect(() => {
     const s = search.trim().toLowerCase();
     setFiltered(
@@ -114,12 +149,14 @@ export default function DoctorDashboard() {
         ? patients
         : patients.filter(
             (p) =>
-              p.name?.toLowerCase().includes(s) ||
-              p.id.toLowerCase().includes(s)
+              p.name?.toLowerCase().includes(s) || p.id.toLowerCase().includes(s)
           )
     );
   }, [search, patients]);
 
+  /* ------------------------------------------------------------
+     📊 Quick Statistics
+  ------------------------------------------------------------ */
   const total = patients.length;
   const recovering = patients.filter(
     (p) => p.status?.toLowerCase() === "recovering"
@@ -131,6 +168,9 @@ export default function DoctorDashboard() {
     return diff <= 7;
   }).length;
 
+  /* ------------------------------------------------------------
+     🧭 UI Layout
+  ------------------------------------------------------------ */
   return (
     <main
       className={`relative min-h-screen transition-all duration-700 ${
@@ -144,10 +184,13 @@ export default function DoctorDashboard() {
         backgroundPosition: "center",
       }}
     >
+      {/* 🔲 Overlay for blur & opacity */}
       <div className="absolute inset-0 bg-white/80 dark:bg-black/70 backdrop-blur-sm"></div>
 
       <div className="relative z-10 p-10">
-        {/* Header */}
+        {/* ------------------------------------------------------------
+           🧾 Header Section
+        ------------------------------------------------------------ */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-10">
           <div className="flex items-center gap-4">
             <Image
@@ -167,6 +210,7 @@ export default function DoctorDashboard() {
             </div>
           </div>
 
+          {/* Navigation & Controls */}
           <div className="flex flex-wrap gap-3 items-center text-sm">
             <LanguageSelector />
             <select
@@ -198,7 +242,9 @@ export default function DoctorDashboard() {
           </div>
         </header>
 
-        {/* Search */}
+        {/* ------------------------------------------------------------
+           🔍 Search Bar
+        ------------------------------------------------------------ */}
         <div className="flex flex-col md:flex-row justify-between mb-8 gap-3">
           <input
             value={search}
@@ -211,8 +257,11 @@ export default function DoctorDashboard() {
           </span>
         </div>
 
-        {/* Statistics */}
+        {/* ------------------------------------------------------------
+           📈 Statistics Cards
+        ------------------------------------------------------------ */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+          {/* Total Patients */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 border-l-4 border-purple-500">
             <h2 className="text-sm text-gray-500 mb-1">Total Patients</h2>
             <p className="text-3xl font-semibold text-purple-700 dark:text-purple-300">
@@ -220,18 +269,22 @@ export default function DoctorDashboard() {
             </p>
           </div>
 
+          {/* Stable Recoveries */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 border-l-4 border-green-500">
             <h2 className="text-sm text-gray-500 mb-1">Stable Recoveries</h2>
             <p className="text-3xl font-semibold text-green-600">{recovering}</p>
           </div>
 
+          {/* New Patients This Week */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 border-l-4 border-yellow-500">
             <h2 className="text-sm text-gray-500 mb-1">New This Week</h2>
             <p className="text-3xl font-semibold text-yellow-600">{newWeek}</p>
           </div>
         </section>
 
-        {/* Table */}
+        {/* ------------------------------------------------------------
+           🧍 Patients Table
+        ------------------------------------------------------------ */}
         <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 p-6 overflow-x-auto">
           <h2 className="text-xl font-semibold text-purple-700 dark:text-purple-300 mb-4">
             Patient Overview
@@ -254,19 +307,27 @@ export default function DoctorDashboard() {
                   <th className="py-2 px-3 text-right font-semibold">Action</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
                     className="border-b hover:bg-purple-50/40 dark:hover:bg-gray-700/30"
                   >
+                    {/* Name */}
                     <td className="py-2 px-3">{p.name ?? "—"}</td>
+
+                    {/* Weight */}
                     <td className="py-2 px-3">
                       {convertWeight(p.weight)} {unit === "imperial" ? "lbs" : "kg"}
                     </td>
+
+                    {/* Height */}
                     <td className="py-2 px-3">
                       {convertHeight(p.height)} {unit === "imperial" ? "ft" : "m"}
                     </td>
+
+                    {/* Status */}
                     <td className="py-2 px-3">
                       <span
                         className={`px-2 py-1 rounded text-xs ${
@@ -278,6 +339,8 @@ export default function DoctorDashboard() {
                         {p.status ?? "Unknown"}
                       </span>
                     </td>
+
+                    {/* Uploaded Reports */}
                     <td className="py-2 px-3">
                       {p.uploads && p.uploads.length > 0 ? (
                         <Link
@@ -291,11 +354,15 @@ export default function DoctorDashboard() {
                         <span className="text-gray-400 text-xs">No uploads</span>
                       )}
                     </td>
+
+                    {/* Registration Date */}
                     <td className="py-2 px-3 text-gray-500">
                       {p.createdAt?.toDate
                         ? p.createdAt.toDate().toLocaleDateString()
                         : "—"}
                     </td>
+
+                    {/* View Patient Profile */}
                     <td className="py-2 px-3 text-right">
                       <Link
                         href={`/dashboard/patient/${p.id}`}
@@ -311,6 +378,9 @@ export default function DoctorDashboard() {
           )}
         </section>
 
+        {/* ------------------------------------------------------------
+           ⚙️ Footer
+        ------------------------------------------------------------ */}
         <footer className="mt-10 text-center text-xs text-gray-500 dark:text-gray-400">
           ©️ {new Date().getFullYear()} AI PostCare. All rights reserved.
         </footer>

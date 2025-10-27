@@ -24,6 +24,8 @@ export default function HomeDashboard() {
     "/assets/bg3.webp",
     "/assets/bg4.webp",
     "/assets/bg5.webp",
+    "/assets/bg6.webp",
+    "/assets/bg7.webp",
   ];
 
   // Greeting logic
@@ -140,11 +142,12 @@ export default function HomeDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4">
             <Link
-              href="/dashboard/patient"
+              href="/dashboard/patients"
               className="bg-purple-700 hover:bg-purple-800 text-white px-6 py-4 rounded-xl font-medium shadow transition-all"
             >
               Patient Dashboard
             </Link>
+
 
             <Link
               href="/dashboard/doctor"

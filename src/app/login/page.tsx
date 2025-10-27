@@ -1,11 +1,23 @@
 "use client";
 
+/*
+==============================================================
+ 💜 AI POSTCARE — LOGIN PAGE (Stable Final)
+==============================================================
+✅ Fully functional login page
+✅ Multilingual (i18n)
+✅ Email / Google / Facebook login
+✅ Smooth background transitions
+❌ No Firestore or role logic
+🚀 Redirects straight to /dashboard/patients
+==============================================================
+*/
+
 import { useEffect, useState } from "react";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   FacebookAuthProvider,
-  OAuthProvider,
   signInWithRedirect,
   getRedirectResult,
 } from "firebase/auth";
@@ -13,7 +25,10 @@ import { auth } from "@/lib/firebaseConfig";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
+import LanguageSelector from "@/components/LanguageSelector";
 
+// 🎨 Backgrounds
 const backgrounds = [
   "/assets/bg1.webp",
   "/assets/bg2.webp",
@@ -25,18 +40,23 @@ const backgrounds = [
 ];
 
 export default function LoginPage() {
+  const { t } = useTranslation();
+  const router = useRouter();
+
+  // State management
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bgIndex, setBgIndex] = useState<number>(0);
-  const router = useRouter();
 
+  // 🎨 Restore saved background
   useEffect(() => {
     const savedIndex = localStorage.getItem("bgIndex");
     if (savedIndex) setBgIndex(Number(savedIndex));
   }, []);
 
+  // 🔁 Check redirect (Google / Facebook)
   useEffect(() => {
     const checkRedirect = async () => {
       try {
@@ -53,6 +73,7 @@ export default function LoginPage() {
     checkRedirect();
   }, [router]);
 
+  // 📧 Email login
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -61,12 +82,14 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/dashboard/patients");
     } catch (err: any) {
+      console.error("Login error:", err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // 🔵 Google Login
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     provider.addScope("profile");
@@ -74,6 +97,7 @@ export default function LoginPage() {
     await signInWithRedirect(auth, provider);
   };
 
+  // 🔷 Facebook Login
   const handleFacebookLogin = async () => {
     const provider = new FacebookAuthProvider();
     provider.addScope("public_profile");
@@ -81,17 +105,14 @@ export default function LoginPage() {
     await signInWithRedirect(auth, provider);
   };
 
-  const handleAppleLogin = async () => {
-    const provider = new OAuthProvider("apple.com");
-    await signInWithRedirect(auth, provider);
-  };
-
+  // 🌈 Change Background
   const changeBackground = () => {
     const next = (bgIndex + 1) % backgrounds.length;
     setBgIndex(next);
     localStorage.setItem("bgIndex", next.toString());
   };
 
+  // 💎 UI
   return (
     <main
       className="relative flex items-center justify-center min-h-screen transition-all duration-700"
@@ -101,9 +122,17 @@ export default function LoginPage() {
         backgroundPosition: "center",
       }}
     >
+      {/* Overlay */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
-      <div className="relative z-10 bg-white/95 dark:bg-black/70 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border border-purple-400/40">
+      {/* Card */}
+      <div className="relative z-10 bg-white/95 dark:bg-black/70 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border border-purple-400/40 transition-all duration-700">
+        {/* 🌍 Language Selector */}
+        <div className="absolute top-4 right-4">
+          <LanguageSelector />
+        </div>
+
+        {/* Logo */}
         <Image
           src="/postcare-logo-new.webp"
           alt="AI PostCare Logo"
@@ -113,20 +142,19 @@ export default function LoginPage() {
           priority
         />
 
+        {/* Title */}
         <h1 className="text-3xl font-bold text-purple-600 mb-1 drop-shadow-md">
           AI PostCare
         </h1>
         <p className="text-gray-700 text-sm mb-8 font-medium tracking-wide">
-          Smart Care, Human Touch.
+          {t("welcome") ?? "Welcome to AI PostCare"}
         </p>
 
-        <form
-          onSubmit={handleEmailLogin}
-          className="flex flex-col gap-4 text-left"
-        >
+        {/* Email + Password Form */}
+        <form onSubmit={handleEmailLogin} className="flex flex-col gap-4 text-left">
           <input
             type="email"
-            placeholder="Email"
+            placeholder={t("email") ?? "Email"}
             className="border border-purple-200/70 bg-white text-gray-900 p-2 rounded focus:ring-2 focus:ring-purple-300 outline-none"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -134,7 +162,7 @@ export default function LoginPage() {
           />
           <input
             type="password"
-            placeholder="Password"
+            placeholder={t("password") ?? "Password"}
             className="border border-purple-200/70 bg-white text-gray-900 p-2 rounded focus:ring-2 focus:ring-purple-300 outline-none"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -149,13 +177,14 @@ export default function LoginPage() {
                 : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:opacity-90"
             }`}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? t("logging_in") ?? "Logging in..." : t("login") ?? "Login"}
           </button>
         </form>
 
+        {/* Divider */}
         <div className="flex items-center my-4">
           <div className="flex-grow h-px bg-gray-300/60"></div>
-          <span className="text-gray-500 text-sm mx-2">or</span>
+          <span className="text-gray-500 text-sm mx-2">{t("or") ?? "or"}</span>
           <div className="flex-grow h-px bg-gray-300/60"></div>
         </div>
 
@@ -171,7 +200,9 @@ export default function LoginPage() {
             width={20}
             height={20}
           />
-          <span className="text-gray-800 font-medium">Sign in with Google</span>
+          <span className="text-gray-800 font-medium">
+            {t("sign_in_google") ?? "Sign in with Google"}
+          </span>
         </button>
 
         {/* Facebook */}
@@ -187,30 +218,35 @@ export default function LoginPage() {
             height={20}
           />
           <span className="text-gray-800 font-medium">
-            Sign in with Facebook
+            {t("sign_in_facebook") ?? "Sign in with Facebook"}
           </span>
         </button>
 
+        {/* Error Message */}
         {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
 
+        {/* Register Link */}
         <p className="mt-5 text-gray-700 text-sm">
-          Don’t have an account?{" "}
+          {t("no_account") ?? "Don’t have an account?"}{" "}
           <Link href="/register" className="text-purple-600 hover:underline">
-            Register
+            {t("register") ?? "Register"}
           </Link>
         </p>
 
+        {/* Footer */}
         <footer className="mt-8 text-sm text-gray-700">
           <b className="text-purple-600">AI PostCare</b>
           <br />
-          Recover accompanied, every day, in your language.
+          {t("footer_message") ??
+            "Recover accompanied, every day, in your language."}
         </footer>
 
+        {/* Background Switch */}
         <button
           onClick={changeBackground}
           className="mt-6 text-xs text-purple-500 hover:text-purple-700 transition underline underline-offset-4"
         >
-          Change Background Theme
+          {t("change_background") ?? "Change Background Theme"}
         </button>
       </div>
     </main>

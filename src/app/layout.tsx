@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css"; // ✅ usa ruta relativa, no "@/app/globals.css"
 import I18nProvider from "./i18nProvider";
+// src/app/layout.tsx
+import "@/lib/i18n"; //
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

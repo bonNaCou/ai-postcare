@@ -1,5 +1,20 @@
 "use client";
 
+/*  
+==============================================================
+ 🩺 AI POSTCARE – PATIENT DASHBOARD
+==============================================================
+ • Full Firebase integration (auth + Firestore)
+ • Personalized user data (no defaults shared between users)
+ • Animated UI using Framer Motion
+ • Multilingual support (LanguageSelector)
+ • PDF export via jsPDF + autoTable
+ • Responsive line chart (BMI + Hydration)
+ • Toast notifications for success/errors
+ • Fully responsive layout (mobile / tablet / desktop)
+==============================================================
+*/
+
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -7,30 +22,46 @@ import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import FileUploader from "./components/FileUploader";
 import ChatIA from "../../ChatIA";
 import LanguageSelector from "@/components/LanguageSelector";
+import FileUploader from "@/components/FileUploader";
+import { useTranslation } from "react-i18next";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useTranslation } from "react-i18next";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { motion } from "framer-motion";
+import toast, { Toaster } from "react-hot-toast";
 
-// -------------------------------
+// Chart.js setup
+ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend);
 
 export default function PatientDashboard() {
   const { t } = useTranslation();
   const router = useRouter();
 
+  /* ------------------------------------------------------------
+   🔧 STATE MANAGEMENT
+  ------------------------------------------------------------ */
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
+  const [bmiHistory, setBmiHistory] = useState<number[]>([]);
+  const [hydrationHistory, setHydrationHistory] = useState<number[]>([]);
 
   const [profile, setProfile] = useState<any>({
     fullName: "",
     gender: "",
     birthDate: "",
-    stage: "",
     weightGoal: "",
     weightUnit: "kg",
     prevWeight: "",
@@ -43,6 +74,7 @@ export default function PatientDashboard() {
     mood: "",
     hydration: "",
     nextFollowUp: "",
+    stage: "",
     reminders: { medication: false, meals: false, water: false },
   });
 
@@ -56,7 +88,9 @@ export default function PatientDashboard() {
     "/assets/bg7.webp",
   ];
 
-  // ------------------------------- Theme & Background
+  /* ------------------------------------------------------------
+   🎨 THEME & BACKGROUND LOGIC
+  ------------------------------------------------------------ */
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") {
@@ -80,7 +114,9 @@ export default function PatientDashboard() {
     localStorage.setItem("bgIndex", next.toString());
   };
 
-  // ------------------------------- Auth & Data
+  /* ------------------------------------------------------------
+   🔐 AUTHENTICATION + FIRESTORE FETCH
+  ------------------------------------------------------------ */
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (u) => {
       if (u) {
@@ -105,24 +141,47 @@ export default function PatientDashboard() {
           ...data,
           reminders: data.reminders || { medication: false, meals: false, water: false },
         }));
+        setBmiHistory(data.bmiHistory || []);
+        setHydrationHistory(data.hydrationHistory || []);
       }
     } catch (err) {
       console.error("❌ Error loading patient data:", err);
+      toast.error("Error loading your profile");
     }
   };
 
+  /* ------------------------------------------------------------
+   💾 SAVE PROFILE DATA
+  ------------------------------------------------------------ */
   const saveProfile = async () => {
     if (!user) return;
     try {
+      const bmiValue = Number(calculateBMI());
+      const hydrationValue =
+        profile.hydration === "Excellent" ? 100 : profile.hydration === "Good" ? 80 : 60;
+
+      const updatedBmiHistory = [...bmiHistory.slice(-4), bmiValue];
+      const updatedHydrationHistory = [...hydrationHistory.slice(-4), hydrationValue];
+
       const refDoc = doc(db, "patients", user.uid);
-      await setDoc(refDoc, profile, { merge: true });
-      alert("✅ Data saved successfully!");
+      await setDoc(
+        refDoc,
+        { ...profile, bmiHistory: updatedBmiHistory, hydrationHistory: updatedHydrationHistory },
+        { merge: true }
+      );
+
+      setBmiHistory(updatedBmiHistory);
+      setHydrationHistory(updatedHydrationHistory);
+      toast.success("✅ Progress saved successfully!");
     } catch (err) {
       console.error("❌ Error saving data:", err);
+      toast.error("Failed to save your progress.");
     }
   };
 
-  // ------------------------------- Calculations
+  /* ------------------------------------------------------------
+   ⚖️ BMI + CONVERSIONS
+  ------------------------------------------------------------ */
   const convertWeightToKg = (v: number, u: string) =>
     u === "lbs" ? v * 0.453592 : u === "st" ? v * 6.35029 : v;
   const convertHeightToMeters = (v: number, u: string) =>
@@ -143,25 +202,9 @@ export default function PatientDashboard() {
         ).toFixed(1)
       : "";
 
-  const painDescription =
-    profile.painLevel <= 2
-      ? "No pain"
-      : profile.painLevel <= 5
-      ? "Mild discomfort"
-      : profile.painLevel <= 8
-      ? "Moderate pain"
-      : "Severe pain — seek help";
-
-  // ------------------------------- Chart Data
-  const chartData = [
-    { day: "Mon", bmi: 27.2, hydration: 85 },
-    { day: "Tue", bmi: 26.9, hydration: 80 },
-    { day: "Wed", bmi: 26.8, hydration: 82 },
-    { day: "Thu", bmi: 26.7, hydration: 81 },
-    { day: "Fri", bmi: 26.6, hydration: 79 },
-  ];
-
-  // ------------------------------- PDF Export
+  /* ------------------------------------------------------------
+   🧾 GENERATE PDF SUMMARY
+  ------------------------------------------------------------ */
   const downloadPDF = () => {
     const docPDF = new jsPDF();
     const today = new Date().toLocaleDateString();
@@ -184,8 +227,8 @@ export default function PatientDashboard() {
       ["Previous Weight", `${profile.prevWeight} ${profile.prevWeightUnit}`],
       ["Current Weight", `${profile.currentWeight} ${profile.currentWeightUnit}`],
       ["Height", `${profile.height} ${profile.heightUnit}`],
-      ["Pain Level", `${profile.painLevel}/10 (${painDescription})`],
-      ["Mood", profile.mood || "—"],
+      ["Pain Level (0–10)", profile.painLevel],
+      ["Mood", profile.mood],
       ["Hydration", profile.hydration || "—"],
       ["Next Follow-up", profile.nextFollowUp || "—"],
       ["Weight Lost", `${weightLost || "—"} kg`],
@@ -207,12 +250,17 @@ export default function PatientDashboard() {
     docPDF.save(`AI-PostCare-Report_${today}.pdf`);
   };
 
+  /* ------------------------------------------------------------
+   🚪 LOGOUT
+  ------------------------------------------------------------ */
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
   };
 
-  // ------------------------------- Loading
+  /* ------------------------------------------------------------
+   ⏳ LOADING STATE
+  ------------------------------------------------------------ */
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-100 to-white dark:from-gray-900 dark:to-black">
@@ -222,7 +270,9 @@ export default function PatientDashboard() {
       </div>
     );
 
-  // ------------------------------- RENDER
+  /* ------------------------------------------------------------
+   🧭 MAIN DASHBOARD UI
+  ------------------------------------------------------------ */
   return (
     <main
       className={`relative min-h-screen flex flex-col lg:flex-row transition-all duration-700 ${
@@ -234,9 +284,19 @@ export default function PatientDashboard() {
         backgroundPosition: "center",
       }}
     >
+      <Toaster
+        position={
+          typeof window !== "undefined" && window.innerWidth < 768
+            ? "bottom-center"
+            : "top-right"
+        }
+        reverseOrder={false}
+      />
+
+      {/* BACKGROUND OVERLAY */}
       <div className="absolute inset-0 bg-white/80 dark:bg-black/70 backdrop-blur-sm"></div>
 
-      {/* MAIN PANEL */}
+      {/* LEFT PANEL */}
       <div className="relative flex-1 p-6 z-10 overflow-y-auto">
         {/* HEADER */}
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -244,8 +304,8 @@ export default function PatientDashboard() {
             <Image
               src="/postcare-logo-new.webp"
               alt="AI PostCare Logo"
-              width={85}
-              height={85}
+              width={90}
+              height={90}
               className="rounded-full shadow-lg border-4 border-purple-200 dark:border-purple-700"
             />
             <div>
@@ -261,90 +321,426 @@ export default function PatientDashboard() {
             </div>
           </div>
 
+          {/* NAVIGATION + THEME */}
           <div className="flex flex-col items-end gap-2 text-sm">
-            <Link href="/dashboard/home" className="text-purple-600 hover:underline">
+            <Link href="/dashboard/home" className="text-purple-600">
               Home
             </Link>
-            <Link href="/dashboard/doctor" className="text-purple-600 hover:underline">
+            <Link href="/dashboard/doctor" className="text-purple-600">
               Doctor Dashboard
             </Link>
-            <button onClick={handleLogout} className="bg-purple-600 text-white px-3 py-1 rounded-md">
+            <button
+              onClick={handleLogout}
+              className="bg-purple-600 text-white px-3 py-1 rounded-md"
+            >
               Log out
             </button>
-            <button onClick={toggleTheme} className="bg-gray-200 dark:bg-gray-800 px-3 py-1 rounded-full">
-              {darkMode ? "☀️" : "🌙"}
+            <button
+              onClick={toggleTheme}
+              className="bg-gray-200 dark:bg-gray-800 px-3 py-1 rounded-full"
+            >
+              {darkMode ? "🌞" : "🌙"}
             </button>
-            <button onClick={changeBackground} className="bg-purple-100 dark:bg-purple-900 px-3 py-1 rounded-full">
+            <button
+              onClick={changeBackground}
+              className="bg-purple-100 dark:bg-purple-900 px-3 py-1 rounded-full"
+            >
               Change Background
             </button>
             <LanguageSelector />
           </div>
         </header>
 
-        {/* KEY METRICS */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "BMI", value: calculateBMI() || "—" },
-            { label: "Weight Lost (kg)", value: weightLost || "—" },
-            { label: "Pain Level", value: `${profile.painLevel}/10` },
-            { label: "Hydration", value: profile.hydration || "—" },
-          ].map((m, i) => (
-            <div
-              key={i}
-              className="bg-white/90 dark:bg-gray-800/90 border border-purple-200 dark:border-purple-700 rounded-xl shadow-md p-4 text-center"
-            >
-              <h3 className="text-sm text-gray-500">{m.label}</h3>
-              <p className="text-xl font-semibold text-purple-700 dark:text-purple-300 mt-1">
-                {m.value}
+        {/* INTRO TEXT */}
+        <p className="text-gray-700 dark:text-gray-300 mb-6">
+          Manage your post-surgery progress 💜 — track your health, set goals,
+          upload medical reports, and get smart advice from AI PostCare.
+        </p>
+
+        {/* UPLOAD MEDICAL FILES */}
+        {user && <FileUploader userId={user.uid} />}
+
+        {/* ------------------------------------------------------------
+         🩺 MY RECOVERY SUMMARY FORM
+        ------------------------------------------------------------ */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="bg-white/90 dark:bg-gray-800/90 p-6 rounded-2xl shadow-md border border-purple-100 dark:border-purple-800 max-w-2xl mx-auto mt-6"
+        >
+          <h2 className="text-lg font-semibold mb-4 text-purple-700 dark:text-purple-300">
+            🩺 My Recovery Summary
+          </h2>
+
+          {/* FORM FIELDS GRID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {/* BASIC INFO */}
+            {[
+              { label: "Full Name", key: "fullName", type: "text" },
+              { label: "Date of Birth", key: "birthDate", type: "date" },
+            ].map((item) => (
+              <div key={item.key}>
+                <label>{item.label}</label>
+                <input
+                  type={item.type}
+                  value={profile[item.key]}
+                  onChange={(e) => setProfile({ ...profile, [item.key]: e.target.value })}
+                  className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+                />
+              </div>
+            ))}
+
+            {/* GENDER SELECT */}
+            <div>
+              <label>Gender</label>
+              <select
+                value={profile.gender}
+                onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+                className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+              >
+                <option value="">Select</option>
+                <option value="male">♂ Male</option>
+                <option value="female">♀ Female</option>
+                <option value="non-binary">⚧ Non-binary</option>
+                <option value="prefer-not">🙈 Prefer not to say</option>
+              </select>
+            </div>
+
+            {/* RECOVERY PHASE */}
+            <div>
+              <label>Recovery Phase</label>
+              <select
+                value={profile.stage}
+                onChange={(e) => setProfile({ ...profile, stage: e.target.value })}
+                className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+              >
+                <option value="">Select phase</option>
+                <option value="Phase 1 – Clear Liquids">Phase 1 – Clear Liquids</option>
+                <option value="Phase 2 – Full Liquids">Phase 2 – Full Liquids</option>
+                <option value="Phase 3 – Pureed Foods">Phase 3 – Pureed Foods</option>
+                <option value="Phase 4 – Soft Foods">Phase 4 – Soft Foods</option>
+                <option value="Phase 5 – Solid Foods">Phase 5 – Solid Foods</option>
+              </select>
+            </div>
+
+            {/* WEIGHT / HEIGHT INPUTS WITH UNITS */}
+            {[
+              { label: "Previous Weight", key: "prevWeight", unitKey: "prevWeightUnit" },
+              { label: "Current Weight", key: "currentWeight", unitKey: "currentWeightUnit" },
+              { label: "Weight Goal", key: "weightGoal", unitKey: "weightUnit" },
+              { label: "Height", key: "height", unitKey: "heightUnit" },
+            ].map((field) => (
+              <div key={field.key}>
+                <label>{field.label}</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={profile[field.key]}
+                    onChange={(e) => setProfile({ ...profile, [field.key]: e.target.value })}
+                    className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+                  />
+                  <select
+                    value={profile[field.unitKey]}
+                    onChange={(e) =>
+                      setProfile({ ...profile, [field.unitKey]: e.target.value })
+                    }
+                    className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2"
+                  >
+                    {field.key === "height"
+                      ? ["cm", "in", "m"].map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))
+                      : ["kg", "lbs", "st"].map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+
+            {/* PAIN LEVEL SLIDER */}
+            <div className="col-span-2">
+              <label>Pain Level (0–10)</label>
+              <input
+                type="range" min="0"
+                max="10"
+                value={profile.painLevel}
+                onChange={(e) =>
+                  setProfile({ ...profile, painLevel: Number(e.target.value) })
+                }
+                className="w-full accent-purple-600"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {profile.painLevel}/10 - Pain intensity
               </p>
             </div>
-          ))}
-        </section>
 
-        {/* CHARTS */}
-        <section className="bg-white/90 dark:bg-gray-800/90 p-6 rounded-2xl shadow-md border border-purple-100 dark:border-purple-800 max-w-3xl mx-auto">
-          <h2 className="text-lg font-semibold mb-4 text-purple-700 dark:text-purple-300">
-            Progress Overview
-          </h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="bmi" stroke="#8B5CF6" strokeWidth={2} />
-              <Line type="monotone" dataKey="hydration" stroke="#06B6D4" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </section>
+            {/* MOOD SELECT */}
+            <div>
+              <label>Mood</label>
+              <select
+                value={profile.mood}
+                onChange={(e) => setProfile({ ...profile, mood: e.target.value })}
+                className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+              >
+                <option value="">Select mood</option>
+                <option value="Happy">😊 Happy</option>
+                <option value="Motivated">💪 Motivated</option>
+                <option value="Calm">😌 Calm</option>
+                <option value="Tired">😴 Tired</option>
+                <option value="Anxious">😟 Anxious</option>
+                <option value="Frustrated">😤 Frustrated</option>
+                <option value="Sad">😢 Sad</option>
+                <option value="Grateful">🙏 Grateful</option>
+                <option value="Energetic">⚡ Energetic</option>
+                <option value="In pain">🤕 In pain</option>
+              </select>
+            </div>
 
-        {/* ACTION BUTTONS */}
-        <div className="flex justify-between max-w-3xl mx-auto mt-6">
-          <button onClick={saveProfile} className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-md">
-            Save Progress
-          </button>
-          <button
-            onClick={downloadPDF}
-            className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-5 py-2 rounded-md"
-          >
-            Download PDF Report
-          </button>
-        </div>
+            {/* HYDRATION SELECT */}
+            <div>
+              <label>Hydration</label>
+              <select
+                value={profile.hydration}
+                onChange={(e) => setProfile({ ...profile, hydration: e.target.value })}
+                className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+              >
+                <option value="">Select Hydration Level</option>
+                <option value="Excellent">Excellent💧💧💧</option>
+                <option value="Good">Good💧💧</option>
+                <option value="Low">Low💧</option>
+              </select>
+            </div>
 
-        {/* FILE UPLOAD */}
-        {user && (
-          <div className="max-w-3xl mx-auto mt-6">
-            <FileUploader userId={user.uid} />
+            {/* NEXT FOLLOW-UP */}
+            <div className="col-span-2">
+              <label>Next Follow-up</label>
+              <input
+                type="date"
+                value={profile.nextFollowUp}
+                onChange={(e) =>
+                  setProfile({ ...profile, nextFollowUp: e.target.value })
+                }
+                className="border border-purple-200 dark:border-purple-700 dark:bg-gray-900 rounded-md p-2 w-full"
+              />
+            </div>
+
+            {/* RESULTS + RECOMMENDATION */}
+            <div className="col-span-2 border-t pt-4 space-y-1">
+              <p>
+                <b>Weight Lost:</b> {weightLost || "—"} kg
+              </p>
+              <p>
+                <b>BMI:</b> {calculateBMI() || "—"}
+              </p>
+              <p>
+                <b>Recommendation:</b>{" "}
+                {calculateBMI()
+                  ? Number(calculateBMI()) < 18.5
+                    ? "Eat more protein and increase calorie intake 🥑"
+                    : Number(calculateBMI()) < 25
+                    ? "You're maintaining a healthy weight ✅"
+                    : "Try light activity and track your meals 🧘‍♀️"
+                  : "Update your weight and height to see suggestions."}
+              </p>
+            </div>
+
+            {/* HEALTH REMINDERS */}
+            <div className="col-span-2 border-t pt-4">
+              <h3 className="font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                🩹 Health Reminders
+              </h3>
+              {[
+                { key: "medication", label: "Take Medications 💊" },
+                { key: "meals", label: "Eat Regular Meals 🍲" },
+                { key: "water", label: "Drink Water 💧" },
+              ].map((r) => (
+                <label key={r.key} className="flex items-center gap-2 mt-1">
+                  <input
+                    type="checkbox"
+                    checked={profile.reminders[r.key]}
+                    onChange={(e) =>
+                      setProfile({
+                        ...profile,
+                        reminders: {
+                          ...profile.reminders,
+                          [r.key]: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  {r.label}
+                </label>
+              ))}
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="col-span-2 mt-6 flex justify-between flex-wrap gap-3">
+              <button
+                onClick={saveProfile}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-md"
+              >
+                💾 Save Progress
+              </button>
+              <button
+                onClick={downloadPDF}
+                className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-5 py-2 rounded-md"
+              >
+                📄 Download PDF Report
+              </button>
+            </div>
           </div>
-        )}
+        </motion.div>
 
+        {/* ------------------------------------------------------------
+         ⚖️ KEY HEALTH METRICS + PROGRESS CHART
+        ------------------------------------------------------------ */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="mt-10 max-w-3xl mx-auto"
+        >
+          <h2 className="text-lg font-semibold text-purple-700 dark:text-purple-300 mb-4">
+            ⚖️ Key Health Metrics
+          </h2>
+
+          {/* FOUR SMALL METRIC CARDS */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: { staggerChildren: 0.15 },
+              },
+            }}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"
+          >
+            {[
+              { label: "BMI", value: calculateBMI() || "—" },
+              { label: "Weight Lost (kg)", value: weightLost || "—" },
+              { label: "Pain Level", value: `${profile.painLevel}/10` },
+              { label: "Hydration", value: profile.hydration || "—" },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0 },
+                }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 text-center border border-purple-100 dark:border-purple-700 hover:shadow-lg transition-all duration-300"
+              >
+                <p className="text-sm text-gray-500 dark:text-gray-400">{item.label}</p>
+                <p className="text-xl font-bold text-purple-700 dark:text-purple-300 mt-1">
+                  {item.value}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* PROGRESS LINE CHART */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-purple-100 dark:border-purple-700"
+          >
+            <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300 mb-4">
+              📈 Progress Overview
+            </h3>
+
+            <Line
+              data={{
+                labels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+                datasets: [
+                  {
+                    label: "BMI",
+                    data: bmiHistory.length
+                      ? bmiHistory
+                      : Array(5).fill(Number(calculateBMI()) || 0),
+                    borderColor: "#8B5CF6",
+                    backgroundColor: (ctx) => {
+                      const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 250);
+                      gradient.addColorStop(0, "rgba(139, 92, 246, 0.4)");
+                      gradient.addColorStop(1, "rgba(139, 92, 246, 0)");
+                      return gradient;
+                    },
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: "#8B5CF6",
+                    fill: true,
+                    tension: 0.4,
+                  },
+                  {
+                    label: "Hydration",
+                    data: hydrationHistory.length
+                      ? hydrationHistory
+                      : [80, 85, 90, 88, 86],
+                    borderColor: "#3B82F6",
+                    backgroundColor: (ctx) => {
+                      const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 250);
+                      gradient.addColorStop(0, "rgba(59, 130, 246, 0.3)");
+                      gradient.addColorStop(1, "rgba(59, 130, 246, 0)");
+                      return gradient;
+                    },
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: "#3B82F6",
+                    fill: true,
+                    tension: 0.4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: {
+                    display: true,
+                    position: "bottom",
+                    labels: {
+                      color: "#6B21A8",
+                      boxWidth: 10,
+                      usePointStyle: true,
+                      font: { size: 12 },
+                    },
+                  },
+                  tooltip: { mode: "index", intersect: false },
+                },
+                interaction: { mode: "nearest", intersect: false },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: "rgba(0,0,0,0.1)" },
+                    ticks: { color: "#6B21A8" },
+                  },
+                  x: {
+                    grid: { display: false },
+                    ticks: { color: "#6B21A8" },
+                  },
+                },
+              }}
+            />
+          </motion.div>
+        </motion.div>
+
+        {/* FOOTER */}
         <footer className="mt-10 text-xs text-center text-gray-500 dark:text-gray-400">
-          <b>AI PostCare</b> — Smart Care, Human Touch.
+          <b>AI PostCare</b> — Smart Care, Human Touch 💜
         </footer>
       </div>
 
-      {/* AI ASSISTANT PANEL */}
-      <aside className="relative z-10 w-full lg:w-1/3 bg-white/95 dark:bg-gray-800/95 border-t lg:border-l border-purple-100 dark:border-purple-800 p-4 shadow-inner backdrop-blur-md">
+      {/* ------------------------------------------------------------
+       🤖 RIGHT PANEL – AI ASSISTANT
+      ------------------------------------------------------------ */}
+      <aside className="relative z-10 w-full lg:w-1/3 bg-white/90 dark:bg-gray-800/90 border-t lg:border-l border-purple-100 dark:border-purple-800 p-4 shadow-inner backdrop-blur-md">
         <h2 className="text-lg font-semibold mb-4 text-purple-700 dark:text-purple-300 text-center">
           AIP Assistant
         </h2>
